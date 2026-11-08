@@ -1,5 +1,5 @@
 // src/screens/ProfileScreen.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -8,27 +8,28 @@ import {
   ScrollView, 
   SafeAreaView,
   Image,
+  ActivityIndicator,
   Alert 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import EditProfileModal from '../components/profile/EditProfileModal';
 import ShareProfileModal from '../components/profile/ShareProfileModal';
 import SettingsPrivacyModal from '../components/profile/SettingsPrivacyModal';
 import ProfileOptionsModal from '../components/profile/ProfileOptionsModal';
-import ManagePlaylistsScreen from './ManagePlaylistsScreen'; // <-- Import Manage Playlists Screen
+import ManagePlaylistsScreen from './ManagePlaylistsScreen';
+import { fetchTopCharts } from '../services/musicApi';
 
-export default function ProfileScreen({ onBackPress }) {
+export default function ProfileScreen({ onBackPress, onSongPress }) {
   const [profileName, setProfileName] = useState('iceboy');
   const [avatarUri, setAvatarUri] = useState(null);
   
   // View & Sub-view states
-  const [currentSubView, setCurrentSubView] = useState('profile'); // 'profile' or 'managePlaylists'
+  const [currentSubView, setCurrentSubView] = useState('profile');
   
   // Playlists state for dynamic management
-  const [playlists, setPlaylists] = useState([
-    { id: '1', name: 'Freest', visibility: 'Public', owner: 'iceboy' },
-    { id: '2', name: 'WizKid: Morayo', visibility: 'Public', owner: 'WizKid' }
-  ]);
+  const [playlists, setPlaylists] = useState([]);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(true);
   
   // Modals state visibility
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -36,10 +37,68 @@ export default function ProfileScreen({ onBackPress }) {
   const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
   const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
   
-  // Extra states
-  const [isPreviewMode, setIsPreviewMode] = useState(false); // Shows profile from a viewer's perspective
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
-  // If subview is managing playlists, render that screen
+  // Load saved profile data from storage on mount
+  useEffect(() => {
+    const loadSavedProfile = async () => {
+      try {
+        const savedName = await AsyncStorage.getItem('user_profile_name');
+        const savedAvatar = await AsyncStorage.getItem('user_profile_avatar');
+        if (savedName) setProfileName(savedName);
+        if (savedAvatar) setAvatarUri(savedAvatar);
+      } catch (error) {
+        console.error('Error loading saved profile:', error);
+      }
+    };
+
+    loadSavedProfile();
+  }, []);
+
+  // Save profile updates to storage
+  const handleSaveProfile = async (newName, newAvatar) => {
+    setProfileName(newName);
+    setAvatarUri(newAvatar);
+    try {
+      if (newName) await AsyncStorage.setItem('user_profile_name', newName);
+      if (newAvatar) {
+        await AsyncStorage.setItem('user_profile_avatar', newAvatar);
+      } else {
+        await AsyncStorage.removeItem('user_profile_avatar');
+      }
+    } catch (error) {
+      console.error('Error saving profile changes:', error);
+    }
+  };
+
+  // Fetch real tracks/playlists from Deezer API on mount
+  useEffect(() => {
+    const loadUserPlaylists = async () => {
+      setLoadingPlaylists(true);
+      try {
+        const topTracks = await fetchTopCharts();
+        if (topTracks.length > 0) {
+          const dynamicPlaylists = topTracks.slice(0, 4).map((track, index) => ({
+            id: track.id,
+            name: track.title,
+            visibility: 'Public',
+            owner: track.artist,
+            coverImage: track.albumCover,
+            audioUrl: track.audioUrl,
+            saves: `${(index + 1) * 12} saves`,
+          }));
+          setPlaylists(dynamicPlaylists);
+        }
+      } catch (error) {
+        console.error('Error fetching profile playlists:', error);
+      } finally {
+        setLoadingPlaylists(false);
+      }
+    };
+
+    loadUserPlaylists();
+  }, []);
+
   if (currentSubView === 'managePlaylists') {
     return (
       <ManagePlaylistsScreen 
@@ -81,7 +140,7 @@ export default function ProfileScreen({ onBackPress }) {
           <Text style={styles.statsText}>0 followers • 14 following</Text>
         </View>
 
-        {/* Action Buttons Row (Hidden if viewing user preview mode) */}
+        {/* Action Buttons Row */}
         {!isPreviewMode && (
           <View style={styles.actionsRow}>
             <TouchableOpacity 
@@ -108,7 +167,6 @@ export default function ProfileScreen({ onBackPress }) {
               <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {/* Three Dots Button Trigger */}
             <TouchableOpacity 
               style={styles.actionIconBtn} 
               activeOpacity={0.8}
@@ -119,7 +177,7 @@ export default function ProfileScreen({ onBackPress }) {
           </View>
         )}
 
-        {/* If in Preview Mode, show a Follow button instead */}
+        {/* Preview Mode Follow Row */}
         {isPreviewMode && (
           <View style={styles.actionsRow}>
             <TouchableOpacity style={styles.followButton} activeOpacity={0.8}>
@@ -131,7 +189,7 @@ export default function ProfileScreen({ onBackPress }) {
           </View>
         )}
 
-        {/* Playlists Section Header */}
+        {/* Playlists Header */}
         <View style={styles.playlistHeaderRow}>
           <Text style={styles.sectionTitle}>Playlists</Text>
           {!isPreviewMode && (
@@ -146,61 +204,77 @@ export default function ProfileScreen({ onBackPress }) {
           )}
         </View>
 
-        {/* Playlist Cards Feed */}
-        <View style={styles.playlistsListContainer}>
-          {playlists.map((playlist) => (
-            <View key={playlist.id} style={styles.playlistCard}>
-              <View style={styles.playlistThumb}>
-                <Ionicons name="musical-notes-outline" size={24} color="rgba(255,255,255,0.4)" />
-              </View>
-              <View style={styles.playlistInfo}>
-                <Text style={styles.playlistName}>{playlist.name}</Text>
-                <Text style={styles.playlistDetails}>0 saves • {playlist.owner}</Text>
-              </View>
-              <TouchableOpacity onPress={() => {
-                Alert.alert(
-                  playlist.name,
-                  "Playlist options",
-                  [
-                    { text: "Remove from profile", onPress: () => setPlaylists(playlists.filter(p => p.id !== playlist.id)) },
-                    { text: "Cancel", style: "cancel" }
-                  ]
-                );
-              }}>
-                <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255,255,255,0.6)" />
+        {/* Playlists List */}
+        {loadingPlaylists ? (
+          <ActivityIndicator size="small" color="#A736FF" style={{ marginVertical: 20 }} />
+        ) : (
+          <View style={styles.playlistsListContainer}>
+            {playlists.map((playlist) => (
+              <TouchableOpacity 
+                key={playlist.id} 
+                style={styles.playlistCard}
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (playlist.audioUrl && onSongPress) {
+                    onSongPress(playlist);
+                  }
+                }}
+              >
+                {playlist.coverImage ? (
+                  <Image source={{ uri: playlist.coverImage }} style={styles.playlistThumbImage} />
+                ) : (
+                  <View style={styles.playlistThumb}>
+                    <Ionicons name="musical-notes-outline" size={24} color="rgba(255,255,255,0.4)" />
+                  </View>
+                )}
+                <View style={styles.playlistInfo}>
+                  <Text style={styles.playlistName} numberOfLines={1}>{playlist.name}</Text>
+                  <Text style={styles.playlistDetails} numberOfLines={1}>
+                    {playlist.saves || '0 saves'} • {playlist.owner}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => {
+                  Alert.alert(
+                    playlist.name,
+                    "Playlist options",
+                    [
+                      { text: "Remove from profile", onPress: () => setPlaylists(playlists.filter(p => p.id !== playlist.id)) },
+                      { text: "Cancel", style: "cancel" }
+                    ]
+                  );
+                }}>
+                  <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
               </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
 
       </ScrollView>
 
-      {/* Edit Profile Modal Popup */}
+      {/* Edit Profile Modal */}
       <EditProfileModal 
         visible={isEditModalVisible}
         onClose={() => setIsEditModalVisible(false)}
         currentName={profileName}
         currentAvatar={avatarUri}
-        onSave={(newName, newAvatar) => {
-          setProfileName(newName);
-          if (newAvatar) setAvatarUri(newAvatar);
-        }}
+        onSave={handleSaveProfile}
       />
 
-      {/* Share Profile Modal Popup */}
+      {/* Share Profile Modal */}
       <ShareProfileModal 
         visible={isShareModalVisible}
         onClose={() => setIsShareModalVisible(false)}
         username={profileName}
       />
 
-      {/* Settings & Privacy Modal Popup */}
+      {/* Settings Privacy Modal */}
       <SettingsPrivacyModal 
         visible={isSettingsModalVisible}
         onClose={() => setIsSettingsModalVisible(false)}
       />
 
-      {/* Three-Dots Options Bottom Sheet Modal */}
+      {/* Profile Options Modal */}
       <ProfileOptionsModal 
         visible={isOptionsModalVisible}
         onClose={() => setIsOptionsModalVisible(false)}
@@ -222,7 +296,7 @@ export default function ProfileScreen({ onBackPress }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#191426', // Medusa Dark Purple
+    backgroundColor: '#191426',
   },
   topNav: {
     paddingHorizontal: 16,
@@ -230,6 +304,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  iconButton: {
+    padding: 4,
   },
   previewBadge: {
     backgroundColor: 'rgba(167, 54, 255, 0.2)',
@@ -258,10 +335,12 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#D97706',
+    backgroundColor: '#A736FF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(167, 54, 255, 0.5)',
   },
   avatarImage: {
     width: '100%',
@@ -372,6 +451,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  playlistThumbImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
   },
   playlistInfo: {
     flex: 1,

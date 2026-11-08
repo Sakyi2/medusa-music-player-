@@ -1,5 +1,5 @@
 // src/components/profile/EditProfileModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -17,9 +17,14 @@ export default function EditProfileModal({ visible, onClose, currentName, curren
   const [name, setName] = useState(currentName || 'iceboy');
   const [avatarUri, setAvatarUri] = useState(currentAvatar || null);
 
+  // Sync state whenever props change or modal becomes visible
+  useEffect(() => {
+    setName(currentName || 'iceboy');
+    setAvatarUri(currentAvatar || null);
+  }, [currentName, currentAvatar, visible]);
+
   // Function to request permissions and pick image from phone gallery
   const pickImage = async () => {
-    // 1. Explicitly request permission to access the media library first
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (!permissionResult.granted) {
@@ -27,7 +32,6 @@ export default function EditProfileModal({ visible, onClose, currentName, curren
       return;
     }
 
-    // 2. Once granted, launch the image picker library
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,

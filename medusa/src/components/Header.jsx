@@ -3,24 +3,40 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function Header({ title, profileImage, onProfilePress, onSearchPress, onAddPress }) {
+export default function Header({
+  title,         // Used for the user's name/initial in the avatar (e.g. "Emmanuel" -> "E")
+  profileImage,
+  avatarUri,     
+  onProfilePress,
+  onSearchPress,
+  onAddPress
+}) {
+  const imageSource = avatarUri || profileImage;
+  const initial = title ? title.trim()[0].toUpperCase() : 'M';
+
   return (
     <View style={styles.header}>
       <View style={styles.leftContainer}>
-        <TouchableOpacity 
-          onPress={onProfilePress} 
+        {/* Profile Avatar / Initial Letter */}
+        <TouchableOpacity
+          onPress={onProfilePress}
           activeOpacity={0.7}
           style={styles.touchableAvatar}
         >
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImg} />
+          {imageSource ? (
+            <Image source={{ uri: imageSource }} style={styles.profileImg} />
           ) : (
             <View style={styles.defaultAvatar}>
-              <Text style={styles.avatarText}>{title ? title[0] : 'M'}</Text>
+              <Text style={styles.avatarText}>{initial}</Text>
             </View>
           )}
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{title}</Text>
+
+        {/* Unique Branded Heading */}
+        <View style={styles.brandContainer}>
+          <Ionicons name="pulse" size={20} color="#A736FF" style={styles.brandIcon} />
+          <Text style={styles.brandText}>MEDUSA</Text>
+        </View>
       </View>
 
       <View style={styles.rightContainer}>
@@ -46,7 +62,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#191426', // Matching Medusa dark purple background
+    backgroundColor: '#191426',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(167, 54, 255, 0.15)',
   },
@@ -57,6 +73,7 @@ const styles = StyleSheet.create({
   touchableAvatar: {
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   profileImg: {
     width: 38,
@@ -80,11 +97,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  headerTitle: {
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandIcon: {
+    marginRight: 6,
+  },
+  brandText: {
     color: '#ffffff',
     fontSize: 20,
-    fontWeight: 'bold',
-    marginLeft: 12,
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
   rightContainer: {
     flexDirection: 'row',

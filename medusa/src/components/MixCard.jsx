@@ -1,75 +1,97 @@
 // src/components/MixCard.jsx
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function MixCard({ onPress }) {
+export default function MixCard({ title, artist, image, isPlaying, onPress }) {
+  // Use provided image or fallback to a gorgeous default album art
+  const imageSource = image ? { uri: image } : require('../../assets/images/medusa_3.png');
+
   return (
-    <View style={styles.bannerContainer}>
-      <View style={styles.bannerContent}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>FEATURED ALBUM</Text>
+    <ImageBackground 
+      source={imageSource} 
+      style={styles.bannerContainer}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      {/* Dark overlay so text and buttons remain crisp and readable */}
+      <View style={styles.overlay}>
+        <View style={styles.bannerContent}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>FEATURED TRACK</Text>
+          </View>
+          <Text style={styles.bannerTitle} numberOfLines={1}>{title || "Medusa's Cry"}</Text>
+          <Text style={styles.bannerSubtitle} numberOfLines={1}>{artist || "Medusa"}</Text>
+          
+          <TouchableOpacity 
+            style={styles.playButton} 
+            activeOpacity={0.8}
+            onPress={onPress}
+          >
+            <Ionicons name={isPlaying ? "pause" : "play"} size={18} color="#FFFFFF" />
+            <Text style={styles.playButtonText}>{isPlaying ? "Pause Track" : "Play Now"}</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.bannerTitle}>Turn Beats Into Obsession</Text>
-        <Text style={styles.bannerSubtitle}>Experience high-end spatial audio tuned for Medusa.</Text>
-        
-        <TouchableOpacity 
-          style={styles.playButton} 
-          activeOpacity={0.8}
-          onPress={onPress} // <-- Now triggers navigation to PlayerScreen
-        >
-          <Ionicons name="play" size={18} color="#FFFFFF" />
-          <Text style={styles.playButtonText}>Play Now</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   bannerContainer: {
-    backgroundColor: '#231D35',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(167, 54, 255, 0.4)',
-    padding: 20,
+    overflow: 'hidden',
     shadowColor: '#A736FF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 8,
+    height: 180,
+    justifyContent: 'flex-end',
+    backgroundColor: '#120E1F',
+  },
+  backgroundImage: {
+    opacity: 0.35,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(18, 14, 31, 0.85)',
+    padding: 20,
+    justifyContent: 'flex-end',
   },
   bannerContent: {
-    gap: 8,
+    gap: 6,
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(167, 54, 255, 0.2)',
+    backgroundColor: 'rgba(167, 54, 255, 0.3)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   badgeText: {
     color: '#A736FF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     letterSpacing: 1,
   },
   bannerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   bannerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   playButton: {
     flexDirection: 'row',
     backgroundColor: '#A736FF',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
@@ -79,6 +101,6 @@ const styles = StyleSheet.create({
   playButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 13,
   },
 });

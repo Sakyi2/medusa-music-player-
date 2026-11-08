@@ -1,62 +1,84 @@
-// app/signup.tsx
+// app/(auth)/forgot-password.tsx
 import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TextInput, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView 
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../src/lib/supabase'; // Updated path for app/(auth)/ directory
 
-export default function SignupScreen() {
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = () => {
-    // Add your registration logic here (Firebase, Supabase, backend API, etc.)
-    console.log('Signing up with:', email);
-    
-    // After successful signup, you can push them into your main app tabs:
-    router.replace('/(tabs)/home' as any);
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert('Missing Email', 'Please enter your email address.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: 'medusa://reset-password', // Custom scheme for deep linking
+      });
+
+      if (error) {
+        Alert.alert('Reset Error', error.message);
+      } else {
+        Alert.alert(
+          'Check Your Email',
+          'Password reset instructions have been sent to your inbox.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           
-          {/* Back / Close Button */}
-          <TouchableOpacity 
-            style={styles.backButton} 
+          {/* Back Button */}
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={() => router.back()}
           >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Header Texts */}
+          {/* Header */}
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join Medusa and turn beats into obsession.</Text>
+            <Text style={styles.title}>Reset Password</Text>
+            <Text style={styles.subtitle}>
+              Enter the email address tied to your producer account, and we'll send you recovery instructions.
+            </Text>
           </View>
 
           {/* Form Fields */}
           <View style={styles.formContainer}>
-            
-            {/* Email Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput 
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
                 style={styles.textInput}
                 placeholder="Enter your email"
                 placeholderTextColor="rgba(255, 255, 255, 0.4)"
@@ -67,55 +89,23 @@ export default function SignupScreen() {
               />
             </View>
 
-            {/* Password Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
-                <TextInput 
-                  style={styles.passwordInput}
-                  placeholder="Create a password"
-                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons 
-                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={22} 
-                    color="rgba(255, 255, 255, 0.6)" 
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Confirm Password Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm Password</Text>
-              <TextInput 
-                style={styles.textInput}
-                placeholder="Confirm your password"
-                placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                secureTextEntry={!showPassword}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
-            </View>
-
-            {/* Primary Submit Button */}
-            <TouchableOpacity 
-              style={styles.signupButton} 
+            <TouchableOpacity
+              style={[styles.actionButton, loading && { opacity: 0.7 }]}
               activeOpacity={0.8}
-              onPress={handleSignup}
+              onPress={handleResetPassword}
+              disabled={loading}
             >
-              <Text style={styles.signupButtonText}>Sign Up</Text>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.actionButtonText}>Send Reset Link</Text>
+              )}
             </TouchableOpacity>
-
           </View>
 
-          {/* Footer Navigation to Login */}
+          {/* Link back to Login */}
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>Remembered your password? </Text>
             <TouchableOpacity onPress={() => router.push('/login' as any)}>
               <Text style={styles.loginLink}>Log in</Text>
             </TouchableOpacity>
@@ -151,13 +141,13 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   title: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: 'rgba(255, 255, 255, 0.6)',
     lineHeight: 22,
   },
@@ -184,22 +174,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
   },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#231D35',
-    borderWidth: 1,
-    borderColor: 'rgba(167, 54, 255, 0.3)',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  signupButton: {
+  actionButton: {
     backgroundColor: '#A736FF', // Neon Purple Accent
     paddingVertical: 18,
     borderRadius: 30,
@@ -211,7 +186,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  signupButtonText: {
+  actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',

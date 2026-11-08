@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Image, Animated } from 'react-native';
-import { router } from 'expo-router'; // <-- Import expo-router directly
+import { router } from 'expo-router';
 
-export default function WelcomeScreen() { // You don't need props here anymore!
+export default function WelcomeScreen() {
   // Animation value for the pulsing neon glow effect
-  const pulseAnim = useRef(new Animated.Value(1)).setValue ? useRef(new Animated.Value(1)).current : new Animated.Value(1);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     // Create an infinite pulsing loop animation
@@ -28,28 +28,29 @@ export default function WelcomeScreen() { // You don't need props here anymore!
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         
-       
+        {/* Upper Section: Logo and Tagline */}
+        <View style={styles.heroSection}>
+          {/* Animated Circular 3D Logo Container */}
+          <View style={styles.logoContainer}>
+            <Animated.View 
+              style={[
+                styles.logoCircle, 
+                { transform: [{ scale: pulseAnim }] }
+              ]}
+            >
+              <Image 
+                source={require('../../assets/images/medusa_3.png')} 
+                style={styles.medusaImage}
+                resizeMode="cover"
+              />
+            </Animated.View>
+          </View>
 
-        {/* Animated Circular 3D Logo Container */}
-        <View style={styles.logoContainer}>
-          <Animated.View 
-            style={[
-              styles.logoCircle, 
-              { transform: [{ scale: pulseAnim }] }
-            ]}
-          >
-            <Image 
-              source={require('../../assets/images/medusa_3.png')} 
-              style={styles.medusaImage}
-              resizeMode="cover"
-            />
-          </Animated.View>
+          {/* Tagline */}
+          <Text style={styles.tagline}>Music that transforms you.</Text>
         </View>
 
-        {/* Tagline */}
-        <Text style={styles.tagline}>Music that transforms you.</Text>
-
-        {/* Action Buttons */}
+        {/* Lower Section: Action Buttons Pushed Down */}
         <View style={styles.buttonContainer}>
           
           {/* Primary CTA (Purple) - Navigates to Signup Page */}
@@ -57,29 +58,18 @@ export default function WelcomeScreen() { // You don't need props here anymore!
             style={styles.primaryButton} 
             activeOpacity={0.8}
             onPress={() => {
-              router.push('/signup'); // Direct file-based navigation for Expo Router
+              router.push('/signup');
             }}
           >
             <Text style={styles.primaryButtonText}>Sign up free</Text>
           </TouchableOpacity>
 
-          {/* Secondary CTA */}
+          {/* Secondary CTA - Navigates to Login Page */}
           <TouchableOpacity 
             style={styles.secondaryButton} 
             activeOpacity={0.8}
             onPress={() => {
-              // Add Google sign-in logic here if needed
-            }}
-          >
-            <Text style={styles.secondaryButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          {/* Tertiary CTA - Navigates to Login Page */}
-          <TouchableOpacity 
-            style={styles.secondaryButton} 
-            activeOpacity={0.8}
-            onPress={() => {
-              router.push('/login'); // Direct file-based navigation for Expo Router
+              router.push('/login');
             }}
           >
             <Text style={styles.secondaryButtonText}>Log in</Text>
@@ -98,23 +88,20 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+    justifyContent: 'space-between', // Pushes hero to top/center and buttons to the bottom
+  },
+  heroSection: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-    gap: 20,
-  },
-  appName: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginTop: 20,
+    gap: 24,
   },
   logoContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 10,
   },
   logoCircle: {
     width: 170, // Size of the circular badge
@@ -125,16 +112,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#A736FF', // Neon Purple Ring Border
-    // High-end multi-layer glow shadow for Android & iOS
     shadowColor: '#A736FF',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
     shadowRadius: 18,
     elevation: 12,
-    overflow: 'hidden', // Clips the image strictly inside the circular shape
+    overflow: 'hidden',
   },
   medusaImage: {
-    width: '115%', // Fills the circle nicely while retaining proportions
+    width: '115%',
     height: '115%',
     borderRadius: 85,
   },
@@ -144,12 +130,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     paddingHorizontal: 20,
-    marginBottom: 10,
   },
   buttonContainer: {
     width: '100%',
     gap: 12,
-    marginTop: 10,
+    marginBottom: 20, // Adds space from the bottom screen margin
   },
   primaryButton: {
     backgroundColor: '#A736FF', // Medusa Neon Purple Accent

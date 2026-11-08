@@ -13,8 +13,15 @@ import {
   Modal,
   Pressable,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchTopCharts, fetchMusicByGenre } from '../services/musicApi';
+import ProfileDrawer from '../components/ProfileDrawer';
+import { supabase } from '../api/supabase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -80,14 +87,24 @@ function CreatePlaylistModal({ visible, onClose, onSelectOption }) {
 }
 
 // --- Main Library Screen Component ---
-export default function LibraryScreen({ onItemPress, onSongPress, onProfilePress }) {
+export default function LibraryScreen({ onItemPress, onSongPress }) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('playlists'); // 'playlists', 'artists', 'albums', 'downloaded'
   const [isGrid, setIsGrid] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
   
+  // Profile persistence state matching Home/Search
+  const [avatarUri, setAvatarUri] = useState(null);
+
   // Search state variables
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Live Data states from Deezer API
+  const [playlists, setPlaylists] = useState([]);
+  const [artists, setArtists] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Animated fade & slide value for top section load
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -98,20 +115,88 @@ export default function LibraryScreen({ onItemPress, onSongPress, onProfilePress
       Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
+
+    // Load saved profile avatar
+    const loadSavedProfile = async () => {
+      try {
+        const savedAvatar = await AsyncStorage.getItem('user_profile_avatar');
+        if (savedAvatar) setAvatarUri(savedAvatar);
+      } catch (error) {
+        console.error('Error loading avatar in Library:', error);
+      }
+    };
+    loadSavedProfile();
+
+    // Fetch live library content from Deezer API
+    const loadLibraryData = async () => {
+      setLoading(true);
+      try {
+        const [topCharts, afroData, synthData] = await Promise.all([
+          fetchTopCharts(),
+          fetchMusicByGenre('Afrobeats'),
+          fetchMusicByGenre('Synthwave'),
+        ]);
+
+        const livePlaylists = [
+          { 
+            id: 'liked', 
+            title: 'Liked Songs', 
+            subtitle: `Playlist • ${topCharts.length} songs`, 
+            image: topCharts[0]?.albumCover || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4', 
+            isPinned: true, 
+            isLiked: true,
+            tracks: topCharts 
+          },
+          { 
+            id: 'cyberpunk_radio', 
+            title: 'Cyberpunk Synthwave 2077', 
+            subtitle: 'Playlist • Medusa Audio', 
+            image: synthData[0]?.albumCover || 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad',
+            tracks: synthData 
+          },
+          { 
+            id: 'heavy_rotation', 
+            title: 'High Voltage Bass', 
+            subtitle: `Playlist • ${topCharts.slice(0, 15).length} tracks`, 
+            image: topCharts[1]?.albumCover || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
+            tracks: topCharts.slice(0, 15) 
+          },
+          { 
+            id: 'afro_future', 
+            title: 'Afro-Futurism Beats', 
+            subtitle: 'Playlist • Live Selection', 
+            image: afroData[0]?.albumCover || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e',
+            tracks: afroData 
+          },
+        ];
+
+        const extractedArtists = [];
+        const seenArtists = new Set();
+        [...topCharts, ...afroData].forEach((track) => {
+          if (track.artist && !seenArtists.has(track.artist)) {
+            seenArtists.add(track.artist);
+            extractedArtists.push({
+              id: `art_${track.id}`,
+              title: track.artist,
+              subtitle: 'Artist • Verified Cyber Creator',
+              image: track.albumCover || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+              isArtist: true,
+              tracks: [track],
+            });
+          }
+        });
+
+        setPlaylists(livePlaylists);
+        setArtists(extractedArtists.slice(0, 10));
+      } catch (error) {
+        console.error('Error loading library content from Deezer:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLibraryData();
   }, []);
-
-  // Mock Library Data
-  const playlists = [
-    { id: 'liked', title: 'Liked Songs', subtitle: 'Playlist • 128 songs', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4', isPinned: true, isLiked: true },
-    { id: 'cyberpunk_radio', title: 'Cyberpunk Synthwave 2077', subtitle: 'Playlist • Medusa Audio', image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad' },
-    { id: 'heavy_rotation', title: 'High Voltage Bass', subtitle: 'Playlist • 42 tracks', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745' },
-    { id: 'afro_future', title: 'Afro-Futurism Beats', subtitle: 'Playlist • Updated yesterday', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e' },
-  ];
-
-  const artists = [
-    { id: 'art_1', title: 'SAINt JHN', subtitle: 'Artist • 3.2M Followers', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb', isArtist: true },
-    { id: 'art_2', title: 'The Weeknd', subtitle: 'Artist • 85M Monthly Listeners', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d', isArtist: true },
-  ];
 
   const handleSelect = (item) => {
     if (onItemPress) {
@@ -119,9 +204,17 @@ export default function LibraryScreen({ onItemPress, onSongPress, onProfilePress
     }
   };
 
+  const safeNavigate = (path) => {
+    setDrawerVisible(false);
+    try {
+      router.push(path);
+    } catch (err) {
+      console.warn(`Route ${path} is not defined yet.`);
+    }
+  };
+
   const currentList = activeTab === 'artists' ? artists : playlists;
 
-  // Filter items based on live search query
   const filteredList = currentList.filter((item) =>
     item.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -131,13 +224,19 @@ export default function LibraryScreen({ onItemPress, onSongPress, onProfilePress
       {/* Animated Top Header or Search Input Header */}
       {!isSearching ? (
         <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <TouchableOpacity onPress={onProfilePress} style={styles.profileAvatar}>
-            <Image source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb' }} style={styles.avatarImg} />
+          <TouchableOpacity 
+            onPress={() => setDrawerVisible(true)} 
+            style={styles.profileAvatar}
+            activeOpacity={0.8}
+          >
+            <Image 
+              source={{ uri: avatarUri || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb' }} 
+              style={styles.avatarImg} 
+            />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Your Library</Text>
           
           <View style={styles.headerRightActions}>
-            {/* Search Icon Toggles Search Bar */}
             <TouchableOpacity style={styles.iconBtn} onPress={() => setIsSearching(true)}>
               <Ionicons name="search" size={22} color="#FFFFFF" />
             </TouchableOpacity>
@@ -193,7 +292,7 @@ export default function LibraryScreen({ onItemPress, onSongPress, onProfilePress
         ))}
       </ScrollView>
 
-      {/* Layout Toolbar (Sort & Grid/List Switcher) */}
+      {/* Layout Toolbar */}
       <View style={styles.toolbar}>
         <TouchableOpacity style={styles.sortBtn}>
           <Ionicons name="swap-vertical" size={16} color="rgba(255,255,255,0.6)" />
@@ -206,51 +305,58 @@ export default function LibraryScreen({ onItemPress, onSongPress, onProfilePress
       </View>
 
       {/* Main Content List / Grid */}
-      <ScrollView contentContainerStyle={[styles.scrollContent, isGrid && styles.gridContent]} showsVerticalScrollIndicator={false}>
-        {filteredList.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="search-outline" size={48} color="rgba(255, 255, 255, 0.2)" />
-            <Text style={styles.emptyText}>No matching items found</Text>
-          </View>
-        ) : (
-          filteredList.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={isGrid ? styles.gridCard : styles.listRow}
-              activeOpacity={0.7}
-              onPress={() => handleSelect(item)}
-            >
-              <View style={isGrid ? styles.gridImageWrapper : styles.listImageWrapper}>
-                <Image
-                  source={{ uri: item.image }}
-                  style={[isGrid ? styles.gridImage : styles.listImage, item.isArtist && styles.artistCircle]}
-                />
-                {item.isLiked && (
-                  <View style={styles.likedBadge}>
-                    <Ionicons name="heart" size={12} color="#FFFFFF" />
-                  </View>
-                )}
-              </View>
-
-              <View style={isGrid ? styles.gridDetails : styles.listDetails}>
-                <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-                <View style={styles.subRow}>
-                  {item.isPinned && (
-                    <Ionicons name="pin" size={12} color="#A736FF" style={{ marginRight: 4 }} />
+      {loading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#A736FF" />
+          <Text style={styles.loaderText}>Syncing Cyber Library...</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={[styles.scrollContent, isGrid && styles.gridContent]} showsVerticalScrollIndicator={false}>
+          {filteredList.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={48} color="rgba(255, 255, 255, 0.2)" />
+              <Text style={styles.emptyText}>No matching items found</Text>
+            </View>
+          ) : (
+            filteredList.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={isGrid ? styles.gridCard : styles.listRow}
+                activeOpacity={0.7}
+                onPress={() => handleSelect(item)}
+              >
+                <View style={isGrid ? styles.gridImageWrapper : styles.listImageWrapper}>
+                  <Image
+                    source={{ uri: item.image }}
+                    style={[isGrid ? styles.gridImage : styles.listImage, item.isArtist && styles.artistCircle]}
+                  />
+                  {item.isLiked && (
+                    <View style={styles.likedBadge}>
+                      <Ionicons name="heart" size={12} color="#FFFFFF" />
+                    </View>
                   )}
-                  <Text style={styles.itemSubtitle} numberOfLines={1}>{item.subtitle}</Text>
                 </View>
-              </View>
 
-              {!isGrid && (
-                <TouchableOpacity style={styles.moreIcon}>
-                  <Ionicons name="ellipsis-vertical" size={18} color="rgba(255,255,255,0.4)" />
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+                <View style={isGrid ? styles.gridDetails : styles.listDetails}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
+                  <View style={styles.subRow}>
+                    {item.isPinned && (
+                      <Ionicons name="pin" size={12} color="#A736FF" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={styles.itemSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+                  </View>
+                </View>
+
+                {!isGrid && (
+                  <TouchableOpacity style={styles.moreIcon}>
+                    <Ionicons name="ellipsis-vertical" size={18} color="rgba(255,255,255,0.4)" />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
 
       {/* Animated Create Playlist / Folder Modal */}
       <CreatePlaylistModal
@@ -260,6 +366,20 @@ export default function LibraryScreen({ onItemPress, onSongPress, onProfilePress
           console.log('Selected creation option:', optionId);
         }}
       />
+
+      {/* Profile Sidebar Drawer matching Home & Search */}
+      <ProfileDrawer 
+        visible={drawerVisible} 
+        onClose={() => setDrawerVisible(false)}
+        onViewProfile={() => safeNavigate('/profile')}
+        onListeningStats={() => safeNavigate('/drawer/stats')}
+        onRecents={() => safeNavigate('/drawer/recents')}
+        onUpdates={() => safeNavigate('/drawer/updates')}
+        onSettings={() => safeNavigate('/drawer/settings')}
+        onToggleActivity={() => Alert.alert("Activity", "Toggled listening activity sharing")}
+        onInviteFriends={() => Alert.alert("Invite", "Share Medusa link with friends")}
+        onNewMessage={() => Alert.alert("Messages", "Starting a new social message")}
+      />
     </SafeAreaView>
   );
 }
@@ -268,6 +388,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#120E1F',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loaderText: {
+    color: '#A736FF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   header: {
     flexDirection: 'row',
@@ -317,6 +449,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#A736FF',
     overflow: 'hidden',
+    backgroundColor: '#261E38',
   },
   avatarImg: {
     width: '100%',

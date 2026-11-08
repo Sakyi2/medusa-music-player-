@@ -1,5 +1,5 @@
 // src/screens/profile-screens/RecentSScreen.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,82 +8,52 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { playTrack } from '../../../src/services/audioService';
+import { fetchTopCharts } from '../../services/musicApi';
 
-export default function RecentSScreen({ onBackPress, onItemPress }) {
+export default function RecentSScreen({ onBackPress, onItemPress, onSongPress }) {
   const [filter, setFilter] = useState('all'); // 'all', 'music', 'podcasts'
+  const [recentItems, setRecentItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data formatted after Spotify / Medusa recents screen with working sample MP3s
-  const todayItems = [
-    {
-      id: '1',
-      title: 'SAINt JHN',
-      subtitle: 'Artist • 24 songs played',
-      type: 'music',
-      isArtist: true,
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    },
-    {
-      id: '2',
-      title: 'Liked Songs',
-      subtitle: '1 song added',
-      type: 'music',
-      isLiked: true,
-      image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    },
-    {
-      id: '3',
-      title: 'Nasty C',
-      subtitle: 'Artist • 8 songs played',
-      type: 'music',
-      isArtist: true,
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-    },
-    {
-      id: '4',
-      title: 'Burna Boy',
-      subtitle: 'Artist • 3 songs played',
-      type: 'music',
-      isArtist: true,
-      image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
-    },
-  ];
+  // Fetch real tracks from Deezer for the recents history list
+  useEffect(() => {
+    const loadRecents = async () => {
+      setLoading(true);
+      try {
+        const tracks = await fetchTopCharts();
+        if (tracks.length > 0) {
+          // Format Deezer tracks to match the Recents layout structure
+          const formatted = tracks.slice(0, 10).map((track, index) => ({
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            subtitle: `Artist • ${track.artist}`,
+            type: 'music',
+            isArtist: index % 2 === 0, // Alternate between circular artist avatar and square album art
+            image: track.albumCover,
+            audioUrl: track.audioUrl,
+            duration: track.duration,
+          }));
+          setRecentItems(formatted);
+        }
+      } catch (error) {
+        console.error('Error loading recents data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const pastItems = [
-    {
-      id: '5',
-      title: '14 songs played',
-      subtitle: 'Playlist • High Rotation',
-      type: 'music',
-      isArtist: false,
-      image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
-    },
-    {
-      id: '6',
-      title: 'Kodak Black',
-      subtitle: 'Artist • 8 songs played',
-      type: 'music',
-      isArtist: true,
-      image: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61',
-      audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
-    },
-  ];
+    loadRecents();
+  }, []);
 
   const handleItemPress = (item) => {
-    // 1. Play audio if stream URL exists
-    if (item.audioUrl) {
-      playTrack(item.audioUrl);
-    }
-
-    // 2. Safely pass item details back to HomeScreen to switch views via state
-    if (onItemPress) {
+    // Pass song/item details back to HomeScreen to trigger audio playback and view transition
+    if (onSongPress && item.audioUrl) {
+      onSongPress(item);
+    } else if (onItemPress) {
       onItemPress(item);
     }
   };
@@ -104,7 +74,7 @@ export default function RecentSScreen({ onBackPress, onItemPress }) {
           style={[styles.itemImage, item.isArtist && styles.artistImageCircle]}
         />
         <View style={styles.itemDetails}>
-          <Text style={styles.itemTitle}>{item.title}</Text>
+          <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
           <View style={styles.subtitleRow}>
             {item.isLiked && (
               <Ionicons
@@ -114,11 +84,11 @@ export default function RecentSScreen({ onBackPress, onItemPress }) {
                 style={{ marginRight: 4 }}
               />
             )}
-            <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
+            <Text style={styles.itemSubtitle} numberOfLines={1}>{item.subtitle}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.moreBtn}>
-          <Ionicons name="arrow-down-circle-outline" size={22} color="#B3B3B3" />
+          <Ionicons name="arrow-forward-circle-outline" size={22} color="#A736FF" />
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -159,17 +129,19 @@ export default function RecentSScreen({ onBackPress, onItemPress }) {
       {/* Content List */}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionHeader}>Today</Text>
-        {todayItems.map((item) => renderItem(item))}
 
-        <Text style={styles.sectionHeader}>11 Oct 2026</Text>
-        {pastItems.map((item) => renderItem(item))}
+        {loading ? (
+          <ActivityIndicator size="large" color="#A736FF" style={{ marginVertical: 40 }} />
+        ) : (
+          recentItems.map((item) => renderItem(item))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121212' },
+  container: { flex: 1, backgroundColor: '#120E1F' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -186,13 +158,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   filterChip: {
-    backgroundColor: '#282828',
+    backgroundColor: '#231D35',
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 54, 255, 0.2)',
   },
-  activeChip: { backgroundColor: '#A736FF' },
-  filterText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  activeChip: { backgroundColor: '#A736FF', borderColor: '#A736FF' },
+  filterText: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
   activeFilterText: { color: '#FFFFFF', fontWeight: 'bold' },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
   sectionHeader: {
@@ -206,12 +180,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    backgroundColor: '#231D35',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 54, 255, 0.1)',
   },
   itemImage: { width: 56, height: 56, borderRadius: 8 },
   artistImageCircle: { borderRadius: 28 },
   itemDetails: { flex: 1, marginLeft: 14 },
   itemTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   subtitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  itemSubtitle: { color: '#B3B3B3', fontSize: 13 },
+  itemSubtitle: { color: 'rgba(255,255,255,0.5)', fontSize: 13 },
   moreBtn: { padding: 6 },
 });

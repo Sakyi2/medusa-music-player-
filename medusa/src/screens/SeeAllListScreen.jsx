@@ -1,5 +1,5 @@
-// src/screens/SeeAllListScreen.jsx
-import React from 'react';
+/// src/screens/SeeAllListScreen.jsx
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -7,20 +7,58 @@ import {
   TouchableOpacity, 
   FlatList, 
   SafeAreaView, 
-  Image 
+  Image,
+  ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { fetchMusicByGenre, fetchTopCharts } from '../services/musicApi';
 
 export default function SeeAllListScreen({ sectionTitle, onBackPress, onSongSelect }) {
-  // Sample data featuring local and international tracks with dates
-  const songsList = [
-    { id: 'sa1', title: 'Ayoo', artist: 'Shatta Wale', date: 'Added Oct 8, 2026', duration: '3:15', image: require('../../assets/images/medusa_3.png') },
-    { id: 'sa2', title: 'On God', artist: 'Shatta Wale', date: 'Added Oct 5, 2026', duration: '2:58', image: require('../../assets/images/medusa_3.png') },
-    { id: 'sa3', title: 'Last Last', artist: 'Burna Boy', date: 'Added Oct 2, 2026', duration: '2:52', image: require('../../assets/images/medusa_3.png') },
-    { id: 'sa4', title: 'fukumean', artist: 'Gunna', date: 'Added Sep 28, 2026', duration: '2:05', image: require('../../assets/images/medusa_3.png') },
-    { id: 'sa5', title: 'Blinding Lights', artist: 'The Weeknd', date: 'Added Sep 20, 2026', duration: '3:20', image: require('../../assets/images/medusa_3.png') },
-    { id: 'sa6', title: 'City Boys', artist: 'Burna Boy', date: 'Added Sep 15, 2026', duration: '2:33', image: require('../../assets/images/medusa_3.png') },
-  ];
+  const [songsList, setSongsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCategorySongs = async () => {
+      setLoading(true);
+      try {
+        let data = [];
+        const titleLower = sectionTitle?.toLowerCase() || '';
+
+        if (titleLower.includes('ghana')) {
+          data = await fetchMusicByGenre('Ghana');
+        } else if (titleLower.includes('africa') || titleLower.includes('afrobeat')) {
+          data = await fetchMusicByGenre('Afrobeats');
+        } else if (titleLower.includes('synthwave')) {
+          data = await fetchMusicByGenre('Synthwave');
+        } else if (titleLower.includes('latin')) {
+          data = await fetchMusicByGenre('Latin');
+        } else if (titleLower.includes('k-pop')) {
+          data = await fetchMusicByGenre('K-Pop');
+        } else if (titleLower.includes('hip-hop') || titleLower.includes('gunna')) {
+          data = await fetchMusicByGenre('Hip-Hop');
+        } else {
+          // Default fallback to global top charts
+          data = await fetchTopCharts();
+        }
+
+        setSongsList(data);
+      } catch (error) {
+        console.error('Error fetching see all songs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCategorySongs();
+  }, [sectionTitle]);
+
+  // Format seconds to mm:ss
+  const formatDuration = (seconds) => {
+    if (!seconds) return '0:30';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -30,40 +68,49 @@ export default function SeeAllListScreen({ sectionTitle, onBackPress, onSongSele
           <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {sectionTitle || 'Recent Songs'}
+          {sectionTitle || 'Charts & Hits'}
         </Text>
         <View style={{ width: 26 }} />
       </View>
 
-      {/* Song List */}
-      <FlatList
-        data={songsList}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.songCard} 
-            activeOpacity={0.7}
-            onPress={() => onSongSelect && onSongSelect(item)}
-          >
-            <Image source={item.image} style={styles.albumArt} />
-            
-            <View style={styles.infoContainer}>
-              <Text style={styles.songTitle} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.artistName} numberOfLines={1}>{item.artist}</Text>
-              <Text style={styles.dateText}>{item.date}</Text>
-            </View>
+      {/* Song List or Loading State */}
+      {loading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#A736FF" />
+        </View>
+      ) : (
+        <FlatList
+          data={songsList}
+          keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item, index }) => (
+            <TouchableOpacity 
+              style={styles.songCard} 
+              activeOpacity={0.7}
+              onPress={() => onSongSelect && onSongSelect(item)}
+            >
+              <Image 
+                source={item.albumCover ? { uri: item.albumCover } : require('../../assets/images/medusa_3.png')} 
+                style={styles.albumArt} 
+              />
+              
+              <View style={styles.infoContainer}>
+                <Text style={styles.songTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.artistName} numberOfLines={1}>{item.artist}</Text>
+                <Text style={styles.dateText}>Rank #{index + 1} • Deezer Stream</Text>
+              </View>
 
-            <View style={styles.rightContainer}>
-              <Text style={styles.durationText}>{item.duration}</Text>
-              <TouchableOpacity style={styles.playIconButton}>
-                <Ionicons name="play-circle" size={28} color="#22C55E" />
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
+              <View style={styles.rightContainer}>
+                <Text style={styles.durationText}>{formatDuration(item.duration)}</Text>
+                <View style={styles.playIconButton}>
+                  <Ionicons name="play-circle" size={28} color="#A736FF" />
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -89,6 +136,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     padding: 20,

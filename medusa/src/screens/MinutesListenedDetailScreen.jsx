@@ -8,18 +8,19 @@ import {
   ScrollView, 
   SafeAreaView, 
   Switch,
+  Image,
   Alert 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function MinutesListenedDetailScreen({ onBackPress }) {
+export default function MinutesListenedDetailScreen({ onBackPress, activeSong }) {
   const [isListeningActivityOn, setIsListeningActivityOn] = useState(true);
 
-  // Current track mock data
-  const currentSong = {
-    title: "Dangote",
-    artist: "Burna Boy",
-    duration: "3:45",
+  // Fallback if no active song is playing
+  const song = activeSong || {
+    title: "Medusa's Cry",
+    artist: "Medusa",
+    albumCover: null,
   };
 
   const handleAddFriend = () => {
@@ -73,12 +74,16 @@ export default function MinutesListenedDetailScreen({ onBackPress }) {
             <Text style={styles.sectionHeader}>Currently playing on loop</Text>
             
             <View style={styles.nowPlayingCard}>
-              <View style={styles.albumArtMock}>
-                <Ionicons name="musical-notes" size={24} color="#A736FF" />
-              </View>
+              {song.albumCover ? (
+                <Image source={{ uri: song.albumCover }} style={styles.albumArtImage} />
+              ) : (
+                <View style={styles.albumArtMock}>
+                  <Ionicons name="musical-notes" size={24} color="#A736FF" />
+                </View>
+              )}
               <View style={styles.songInfo}>
-                <Text style={styles.songTitleText}>{currentSong.title}</Text>
-                <Text style={styles.artistNameText}>{currentSong.artist}</Text>
+                <Text style={styles.songTitleText} numberOfLines={1}>{song.title}</Text>
+                <Text style={styles.artistNameText} numberOfLines={1}>{song.artist}</Text>
               </View>
               <View style={styles.liveIndicator}>
                 <View style={styles.pulsingDot} />
@@ -215,6 +220,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E2545',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  albumArtImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
   },
   songInfo: {
     flex: 1,

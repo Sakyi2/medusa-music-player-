@@ -1,8 +1,14 @@
 // src/components/profile/ProfileHeader.jsx
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 
-export default function ProfileHeader({ username = 'iceboy', followers = 0, following = 14, onPress }) {
+export default function ProfileHeader({ 
+  username = 'iceboy', 
+  avatarUri = null, 
+  followers = 0, 
+  following = 14, 
+  onPress 
+}) {
   return (
     <TouchableOpacity 
       style={styles.userHeader} 
@@ -10,10 +16,14 @@ export default function ProfileHeader({ username = 'iceboy', followers = 0, foll
       onPress={onPress}
     >
       <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>{username ? username[0].toUpperCase() : 'I'}</Text>
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+        ) : (
+          <Text style={styles.avatarText}>{username ? username[0].toUpperCase() : 'I'}</Text>
+        )}
       </View>
       <View style={styles.userInfo}>
-        <Text style={styles.username}>{username}</Text>
+        <Text style={styles.username} numberOfLines={1}>{username}</Text>
         <Text style={styles.statsText}>{followers} followers • {following} following</Text>
       </View>
     </TouchableOpacity>
@@ -33,9 +43,16 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#D97706',
+    backgroundColor: '#A736FF',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 54, 255, 0.4)',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     color: '#FFFFFF',
@@ -43,6 +60,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   userInfo: {
+    flex: 1,
     gap: 2,
   },
   username: {

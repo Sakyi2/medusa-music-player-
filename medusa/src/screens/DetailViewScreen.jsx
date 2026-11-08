@@ -1,5 +1,5 @@
-/// src/screens/DetailViewScreen.jsx
-import React from 'react';
+// src/screens/DetailViewScreen.jsx
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -7,39 +7,74 @@ import {
   TouchableOpacity, 
   ScrollView, 
   SafeAreaView, 
-  Image 
+  Image, 
+  ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router'; 
-import { playTrack } from '../services/audioService'; 
+import { fetchMusicByGenre, fetchTopCharts } from '../services/musicApi';
 
 export default function DetailViewScreen({ onBackPress, onSongPress, playlistData }) {
   const router = useRouter();
-  const params = useLocalSearchParams(); // Grabs route parameters if accessed via file route
+  const params = useLocalSearchParams(); 
 
-  // Use passed playlistData prop if available, otherwise fall back to route params or defaults
+  const [tracks, setTracks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Extract playlist/category details
   const playlist = {
     title: playlistData?.title || params.title || "Medusa's Choice",
-    subtitle: playlistData?.subtitle || "Playlist • 50 songs • 3h 42m",
+    subtitle: playlistData?.subtitle || params.subtitle || "Playlist • Live Streaming",
     image: playlistData?.image 
       ? (typeof playlistData.image === 'string' ? { uri: playlistData.image } : playlistData.image)
       : params.image ? { uri: String(params.image) } : require('../../assets/images/medusa_3.png'),
   };
 
-  const tracks = [
-    { id: '1', number: '1', title: 'Blinding Lights', artist: 'The Weeknd', duration: '3:45', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-    { id: '2', number: '2', title: 'Enter Sandman', artist: 'Metallica', duration: '5:31', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-    { id: '3', number: '3', title: 'Don\'t Start Now', artist: 'Dua Lipa', duration: '3:03', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-    { id: '4', number: '4', title: 'Medusa\'s Cry', artist: 'Medusa', duration: '4:12', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-  ];
+  // Fetch real tracks matching the category title from Deezer API
+  useEffect(() => {
+    const loadPlaylistTracks = async () => {
+      setLoading(true);
+      try {
+        let data = [];
+        const titleLower = playlist.title.toLowerCase();
+
+        if (titleLower.includes('ghana')) {
+          data = await fetchMusicByGenre('Ghana');
+        } else if (titleLower.includes('africa') || titleLower.includes('afro')) {
+          data = await fetchMusicByGenre('Afrobeats');
+        } else if (titleLower.includes('synth') || titleLower.includes('cyber')) {
+          data = await fetchMusicByGenre('Synthwave');
+        } else if (titleLower.includes('latin')) {
+          data = await fetchMusicByGenre('Latin');
+        } else if (titleLower.includes('k-pop')) {
+          data = await fetchMusicByGenre('K-Pop');
+        } else if (titleLower.includes('gunna') || titleLower.includes('hip-hop') || titleLower.includes('drake')) {
+          data = await fetchMusicByGenre(playlist.title);
+        } else {
+          data = await fetchTopCharts();
+        }
+
+        setTracks(data);
+      } catch (error) {
+        console.error('Error fetching detail view tracks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPlaylistTracks();
+  }, [playlist.title]);
+
+  // Format seconds to mm:ss
+  const formatDuration = (seconds) => {
+    if (!seconds) return '0:30';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   // Helper function to handle playing a track safely
   const handleTrackPress = (track) => {
-    if (track.audioUrl) {
-      playTrack(track.audioUrl);
-    }
-    
-    // If a custom song press handler is passed (state-driven), use it. Otherwise, use router.push
     if (onSongPress) {
       onSongPress(track);
     } else {
@@ -48,14 +83,13 @@ export default function DetailViewScreen({ onBackPress, onSongPress, playlistDat
         params: {
           title: track.title,
           artist: track.artist,
-          image: playlist.image?.uri || '',
+          image: track.albumCover || playlist.image?.uri || '',
           audioUrl: track.audioUrl || ''
         },
       });
     }
   };
 
-  // Safe back handler: uses local state prop if provided, otherwise falls back to router
   const handleBack = () => {
     if (onBackPress) {
       onBackPress();
@@ -69,7 +103,7 @@ export default function DetailViewScreen({ onBackPress, onSongPress, playlistDat
       
       {/* Top Header Back Navigation */}
       <View style={styles.topNav}>
-        <TouchableOpacity onPress={handleBack} style={styles.iconButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.iconButton} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -91,7 +125,7 @@ export default function DetailViewScreen({ onBackPress, onSongPress, playlistDat
         <View style={styles.actionRow}>
           <View style={styles.leftActions}>
             <TouchableOpacity style={styles.favoriteButton} activeOpacity={0.8}>
-              <Ionicons name="heart" size={20} color="#22C55E" />
+              <Ionicons name="heart" size={20} color="#A736FF" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionIcon} activeOpacity={0.8}>
               <Ionicons name="arrow-down-circle-outline" size={26} color="rgba(255,255,255,0.7)" />
@@ -102,7 +136,7 @@ export default function DetailViewScreen({ onBackPress, onSongPress, playlistDat
             <TouchableOpacity 
               style={styles.playButton} 
               activeOpacity={0.8}
-              onPress={() => handleTrackPress(tracks[0])}
+              onPress={() => tracks.length > 0 && handleTrackPress(tracks[0])}
             >
               <Ionicons name="play" size={20} color="#000000" />
               <Text style={styles.playButtonText}>Play</Text>
@@ -118,23 +152,34 @@ export default function DetailViewScreen({ onBackPress, onSongPress, playlistDat
         </View>
 
         {/* Tracklist Section */}
-        <View style={styles.trackList}>
-          {tracks.map((track) => (
-            <TouchableOpacity 
-              key={track.id} 
-              style={styles.trackRow} 
-              activeOpacity={0.7}
-              onPress={() => handleTrackPress(track)}
-            >
-              <Text style={styles.trackNumber}>{track.number}</Text>
-              <View style={styles.trackInfo}>
-                <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
-                <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
-              </View>
-              <Text style={styles.trackDuration}>{track.duration}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {loading ? (
+          <ActivityIndicator size="large" color="#A736FF" style={{ marginTop: 40 }} />
+        ) : (
+          <View style={styles.trackList}>
+            {tracks.map((track, index) => (
+              <TouchableOpacity 
+                key={track.id || index} 
+                style={styles.trackRow} 
+                activeOpacity={0.7}
+                onPress={() => handleTrackPress(track)}
+              >
+                <Text style={styles.trackNumber}>{index + 1}</Text>
+                
+                <Image 
+                  source={track.albumCover ? { uri: track.albumCover } : require('../../assets/images/medusa_3.png')} 
+                  style={styles.trackThumb} 
+                />
+
+                <View style={styles.trackInfo}>
+                  <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
+                  <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>
+                </View>
+
+                <Text style={styles.trackDuration}>{formatDuration(track.duration)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -214,7 +259,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   playButton: {
-    backgroundColor: '#22C55E',
+    backgroundColor: '#A736FF',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 22,
@@ -223,7 +268,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   playButtonText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -237,22 +282,29 @@ const styles = StyleSheet.create({
   },
   trackList: {
     width: '100%',
-    gap: 16,
+    gap: 14,
     marginTop: 10,
   },
   trackRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(35, 29, 53, 0.5)',
+    padding: 8,
+    borderRadius: 12,
   },
   trackNumber: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 14,
     fontWeight: '600',
-    width: 16,
+    width: 20,
     textAlign: 'center',
+  },
+  trackThumb: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: '#1E172C',
   },
   trackInfo: {
     flex: 1,

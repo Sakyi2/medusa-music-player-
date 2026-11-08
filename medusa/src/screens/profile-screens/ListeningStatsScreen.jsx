@@ -1,5 +1,5 @@
 // src/screens/ListeningStatsScreen.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -7,28 +7,42 @@ import {
   ScrollView, 
   TouchableOpacity, 
   SafeAreaView, 
-  Image 
+  Image,
+  ActivityIndicator 
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { fetchTopArtistsStats } from '../../services/musicApi';
 
 export default function ListeningStatsScreen({ 
   onBackPress, 
   onMinutesListenedPress, 
   onTopArtistsPress,
-  onArtistPress // <-- Added prop for artist navigation
+  onArtistPress 
 }) {
   const [timeRange, setTimeRange] = useState('4weeks');
+  const [topArtists, setTopArtists] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Top artists sample data with rich context for detail views
-  
-   // Top artists sample data with rich context for detail views
-  const topArtists = [
-    { id: '1', name: 'Shatta Wale', plays: '342 plays', subtitle: 'Top Artist • 2026', image: require('../../../assets/images/medusa_3.png') },
-    { id: '2', name: 'Kweku Smoke', plays: '289 plays', subtitle: 'Top Artist • 2026', image: require('../../../assets/images/medusa_3.png') },
-    { id: '3', name: 'Burna Boy', plays: '210 plays', subtitle: 'Top Artist • 2026', image: require('../../../assets/images/medusa_3.png') },
-    { id: '4', name: 'Gunna', plays: '185 plays', subtitle: 'Top Artist • 2026', image: require('../../../assets/images/medusa_3.png') },
-  ];
-  
+  // Fetch real top artists on mount with safe web-based fallback images
+  useEffect(() => {
+    const loadStats = async () => {
+      setLoading(true);
+      const artists = await fetchTopArtistsStats();
+      if (artists.length > 0) {
+        setTopArtists(artists);
+      } else {
+        // Safe fallback using remote Unsplash/Deezer URLs so local files never fail
+        setTopArtists([
+          { id: '1', name: 'Shatta Wale', plays: '342 plays', subtitle: 'Top Artist • 2026', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300&auto=format&fit=crop' },
+          { id: '2', name: 'Kweku Smoke', plays: '289 plays', subtitle: 'Top Artist • 2026', image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop' },
+          { id: '3', name: 'Burna Boy', plays: '210 plays', subtitle: 'Top Artist • 2026', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300&auto=format&fit=crop' },
+          { id: '4', name: 'Gunna', plays: '185 plays', subtitle: 'Top Artist • 2026', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300&auto=format&fit=crop' },
+        ]);
+      }
+      setLoading(false);
+    };
+    loadStats();
+  }, []);
 
   const topGenres = [
     { name: 'Afrobeats / Highlife', percentage: '42%', color: '#A736FF' },
@@ -52,26 +66,17 @@ export default function ListeningStatsScreen({
         
         {/* Time Period Filter Tabs */}
         <View style={styles.filterContainer}>
-          <TouchableOpacity 
-            style={[styles.filterTab, timeRange === '4weeks' && styles.activeFilterTab]}
-            onPress={() => setTimeRange('4weeks')}
-          >
-            <Text style={[styles.filterText, timeRange === '4weeks' && styles.activeFilterText]}>Last 4 Weeks</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.filterTab, timeRange === '6months' && styles.activeFilterTab]}
-            onPress={() => setTimeRange('6months')}
-          >
-            <Text style={[styles.filterText, timeRange === '6months' && styles.activeFilterText]}>6 Months</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.filterTab, timeRange === 'allTime' && styles.activeFilterTab]}
-            onPress={() => setTimeRange('allTime')}
-          >
-            <Text style={[styles.filterText, timeRange === 'allTime' && styles.activeFilterText]}>All Time</Text>
-          </TouchableOpacity>
+          {['4weeks', '6months', 'allTime'].map((range) => (
+            <TouchableOpacity 
+              key={range}
+              style={[styles.filterTab, timeRange === range && styles.activeFilterTab]}
+              onPress={() => setTimeRange(range)}
+            >
+              <Text style={[styles.filterText, timeRange === range && styles.activeFilterText]}>
+                {range === '4weeks' ? 'Last 4 Weeks' : range === '6months' ? '6 Months' : 'All Time'}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Total Minutes Card (Interactive CTA) */}
@@ -101,25 +106,29 @@ export default function ListeningStatsScreen({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.artistsGrid}>
-            {topArtists.map((artist, index) => (
-              <TouchableOpacity 
-                key={artist.id} 
-                style={styles.artistCard} 
-                activeOpacity={0.8}
-                onPress={() => onArtistPress && onArtistPress(artist)} // <-- Triggers DetailView/Player transition
-              >
-                <View style={styles.artistImageWrapper}>
-                  <Image source={artist.image} style={styles.artistImage} />
-                  <View style={styles.rankBadge}>
-                    <Text style={styles.rankBadgeText}>#{index + 1}</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#A736FF" style={{ marginVertical: 20 }} />
+          ) : (
+            <View style={styles.artistsGrid}>
+              {topArtists.map((artist, index) => (
+                <TouchableOpacity 
+                  key={artist.id} 
+                  style={styles.artistCard} 
+                  activeOpacity={0.8}
+                  onPress={() => onArtistPress && onArtistPress(artist)}
+                >
+                  <View style={styles.artistImageWrapper}>
+                    <Image source={{ uri: artist.image }} style={styles.artistImage} />
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankBadgeText}>#{index + 1}</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={styles.artistName} numberOfLines={1}>{artist.name}</Text>
-                <Text style={styles.artistPlays}>{artist.plays}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text style={styles.artistName} numberOfLines={1}>{artist.name}</Text>
+                  <Text style={styles.artistPlays}>{artist.plays}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Top Genres Breakdown */}

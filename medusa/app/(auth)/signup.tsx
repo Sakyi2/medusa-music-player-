@@ -1,4 +1,4 @@
-// app/login.tsx
+// app/(auth)/signup.tsx
 import React, { useState } from 'react';
 import { 
   StyleSheet, 
@@ -9,22 +9,66 @@ import {
   SafeAreaView, 
   KeyboardAvoidingView, 
   Platform, 
-  ScrollView 
+  ScrollView,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../src/lib/supabase'; // Connected to your Supabase client
 
-export default function LoginScreen() {
+export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    // Add your login authentication logic here (Firebase, Supabase, backend API, etc.)
-    console.log('Logging in with:', email);
-    
-    // After successful login, navigate straight to the main tabs home screen:
-    router.replace('/(tabs)/home' as any);
+  const handleSignup = async () => {
+    if (!email || !password || !confirmPassword) {
+      Alert.alert('Missing Fields', 'Please fill in all fields to create your account.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Password Mismatch', 'Your passwords do not match. Please check and try again.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Weak Password', 'Password must be at least 6 characters long.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        Alert.alert('Signup Error', error.message);
+        return;
+      }
+
+      // Check if session is returned automatically (depends on Supabase email confirmation settings)
+      if (data?.session) {
+        Alert.alert('Success!', 'Account created successfully!');
+        router.replace('/(tabs)' as any);
+      } else {
+        Alert.alert(
+          'Verification Required',
+          'Account created! Please check your email for a confirmation link before logging in.',
+          [{ text: 'OK', onPress: () => router.push('/login' as any) }]
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('An unexpected error occurred', err?.message || 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -45,8 +89,8 @@ export default function LoginScreen() {
 
           {/* Header Texts */}
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Log in to continue your musical obsession.</Text>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Join Medusa and turn beats into obsession.</Text>
           </View>
 
           {/* Form Fields */}
@@ -72,7 +116,7 @@ export default function LoginScreen() {
               <View style={styles.passwordContainer}>
                 <TextInput 
                   style={styles.passwordInput}
-                  placeholder="Enter your password"
+                  placeholder="Create a password"
                   placeholderTextColor="rgba(255, 255, 255, 0.4)"
                   secureTextEntry={!showPassword}
                   value={password}
@@ -88,27 +132,40 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Forgot Password */}
-            <TouchableOpacity style={styles.forgotPasswordContainer} onPress={() => {}}>
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-            </TouchableOpacity>
+            {/* Confirm Password Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <TextInput 
+                style={styles.textInput}
+                placeholder="Confirm your password"
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                secureTextEntry={!showPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
 
             {/* Primary Submit Button */}
             <TouchableOpacity 
-              style={styles.loginButton} 
+              style={[styles.signupButton, loading && { opacity: 0.7 }]} 
               activeOpacity={0.8}
-              onPress={handleLogin}
+              onPress={handleSignup}
+              disabled={loading}
             >
-              <Text style={styles.loginButtonText}>Log In</Text>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.signupButtonText}>Sign Up</Text>
+              )}
             </TouchableOpacity>
 
           </View>
 
-          {/* Footer Navigation to Signup */}
+          {/* Footer Navigation to Login */}
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/signup' as any)}>
-              <Text style={styles.signupLink}>Sign up free</Text>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push('/login' as any)}>
+              <Text style={styles.loginLink}>Log in</Text>
             </TouchableOpacity>
           </View>
 
@@ -190,15 +247,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
   },
-  forgotPasswordContainer: {
-    alignItems: 'flex-end',
-    marginTop: -4,
-  },
-  forgotPasswordText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 14,
-  },
-  loginButton: {
+  signupButton: {
     backgroundColor: '#A736FF', // Neon Purple Accent
     paddingVertical: 18,
     borderRadius: 30,
@@ -210,7 +259,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  loginButtonText: {
+  signupButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
@@ -225,7 +274,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
   },
-  signupLink: {
+  loginLink: {
     color: '#A736FF',
     fontSize: 14,
     fontWeight: 'bold',

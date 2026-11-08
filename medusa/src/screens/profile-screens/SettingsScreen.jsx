@@ -1,5 +1,5 @@
 // src/screens/SettingsScreen.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -10,13 +10,76 @@ import {
   Alert 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import { supabase } from '../../lib/supabase' // Adjust path based on your folder structure
 
 export default function SettingsScreen({ onBackPress, onLogout }) {
   const [isDataSaver, setIsDataSaver] = useState(true);
   const [isPrivateSession, setIsPrivateSession] = useState(false);
 
+  // Load saved settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const savedDataSaver = await AsyncStorage.getItem('settings_data_saver');
+        const savedPrivate = await AsyncStorage.getItem('settings_private_session');
+
+        if (savedDataSaver !== null) setIsDataSaver(JSON.parse(savedDataSaver));
+        if (savedPrivate !== null) setIsPrivateSession(JSON.parse(savedPrivate));
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Toggle handlers with AsyncStorage persistence
+  const toggleDataSaver = async () => {
+    const newValue = !isDataSaver;
+    setIsDataSaver(newValue);
+    await AsyncStorage.setItem('settings_data_saver', JSON.stringify(newValue));
+  };
+
+  const togglePrivateSession = async () => {
+    const newValue = !isPrivateSession;
+    setIsPrivateSession(newValue);
+    await AsyncStorage.setItem('settings_private_session', JSON.stringify(newValue));
+  };
+
+  // Option row click handlers
   const handleSettingPress = (title, description) => {
-    Alert.alert(title, `Opening settings for: ${description}`);
+    Alert.alert(title, `Manage options for: ${description}`);
+  };
+
+  // Supabase direct logout fallback if onLogout prop is not provided
+  const handleLogoutPress = () => {
+    if (onLogout) {
+      onLogout();
+      return;
+    }
+
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out of Medusa?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Log Out', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              const { error } = await supabase.auth.signOut();
+              if (error) throw error;
+              router.replace('/'); 
+            } catch (err) {
+              Alert.alert('Logout Error', err?.message || 'Failed to log out.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -28,7 +91,7 @@ export default function SettingsScreen({ onBackPress, onLogout }) {
           <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
-        <TouchableOpacity onPress={() => Alert.alert("Search", "Search settings")} style={styles.iconButton}>
+        <TouchableOpacity onPress={() => Alert.alert("Search Settings", "Search options coming soon")} style={styles.iconButton}>
           <Ionicons name="search" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -39,7 +102,7 @@ export default function SettingsScreen({ onBackPress, onLogout }) {
         <View style={styles.topTogglesRow}>
           <TouchableOpacity 
             style={[styles.toggleCard, isDataSaver && styles.toggleCardActive]} 
-            onPress={() => setIsDataSaver(!isDataSaver)}
+            onPress={toggleDataSaver}
             activeOpacity={0.8}
           >
             <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
@@ -49,7 +112,7 @@ export default function SettingsScreen({ onBackPress, onLogout }) {
 
           <TouchableOpacity 
             style={[styles.toggleCard, isPrivateSession && styles.toggleCardActive]} 
-            onPress={() => setIsPrivateSession(!isPrivateSession)}
+            onPress={togglePrivateSession}
             activeOpacity={0.8}
           >
             <Ionicons name="eye-off" size={22} color="#FFFFFF" />
@@ -146,7 +209,7 @@ export default function SettingsScreen({ onBackPress, onLogout }) {
 
         {/* Logout Button Section */}
         <View style={styles.logoutContainer}>
-          <TouchableOpacity style={styles.logoutButton} activeOpacity={0.8} onPress={onLogout}>
+          <TouchableOpacity style={styles.logoutButton} activeOpacity={0.8} onPress={handleLogoutPress}>
             <Text style={styles.logoutButtonText}>Log out</Text>
           </TouchableOpacity>
         </View>

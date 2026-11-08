@@ -1,5 +1,5 @@
 // src/screens/TopArtistsDetailScreen.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -11,32 +11,55 @@ import {
   Modal,
   Share,
   Alert,
+  ActivityIndicator,
   TouchableWithoutFeedback 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { fetchTopArtistsStats } from '../services/musicApi';
 
 export default function TopArtistsDetailScreen({ onBackPress }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedArtist, setSelectedArtist] = useState(null);
+  const [artists, setArtists] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load real artist rankings on mount
+  useEffect(() => {
+    const loadTopArtists = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchTopArtistsStats();
+        if (data.length > 0) {
+          setArtists(data);
+        } else {
+          // Safe web fallback if network request returns empty
+          setArtists([
+            { id: '1', name: 'Burna Boy', subtitle: 'Top Artist • 2026', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=300&auto=format&fit=crop' },
+            { id: '2', name: 'Gunna', subtitle: 'Top Artist • 2026', image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop' },
+            { id: '3', name: 'Kwesi Arthur', subtitle: 'Top Artist • 2026', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300&auto=format&fit=crop' },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error loading top artists:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTopArtists();
+  }, []);
 
   // Handle sharing top artists overall stats
   const handleShareStats = async () => {
     try {
+      const topNames = artists.map((a) => a.name).join(', ');
       await Share.share({
-        message: "Check out my Medusa listening stats: I listened to 75 artists this week, featuring Burna Boy, Gunna, and Kwesi Arthur!",
+        message: `Check out my Medusa listening stats! My top artists feature: ${topNames || 'Burna Boy, Gunna, and Kwesi Arthur'}.`,
       });
     } catch (error) {
       Alert.alert('Error', error.message);
     }
   };
-
-  const topArtists = [
-    { id: '1', rank: '1', name: 'Burna Boy', image: require('../../assets/images/medusa_3.png') },
-    { id: '2', rank: '2', name: 'Gunna', image: require('../../assets/images/medusa_3.png') },
-    { id: '3', rank: '3', name: 'Kwesi Arthur', image: require('../../assets/images/medusa_3.png') },
-    { id: '4', rank: '4', name: 'Asake', subtitle: '2 weeks in top 5', image: require('../../assets/images/medusa_3.png') },
-    { id: '5', rank: '5', name: 'The Weeknd', image: require('../../assets/images/medusa_3.png') },
-  ];
 
   // Open action sheet for a specific artist
   const openArtistOptions = (artist) => {
@@ -94,7 +117,7 @@ export default function TopArtistsDetailScreen({ onBackPress }) {
         <View style={styles.summaryContainer}>
           <Text style={styles.dateRange}>5–11 Oct</Text>
           <Text style={styles.summaryText}>
-            You listened to <Text style={styles.highlightText}>75 artists</Text> this week
+            You listened to <Text style={styles.highlightText}>{artists.length || 75} top artists</Text> this week
           </Text>
         </View>
 
@@ -102,30 +125,38 @@ export default function TopArtistsDetailScreen({ onBackPress }) {
         <View style={styles.divider} />
 
         {/* Artist Ranking List */}
-        <View style={styles.listContainer}>
-          {topArtists.map((artist) => (
-            <View key={artist.id} style={styles.artistRow}>
-              <Text style={styles.rankNumber}>{artist.rank}</Text>
-              
-              <Image source={artist.image} style={styles.avatar} resizeMode="cover" />
+        {loading ? (
+          <ActivityIndicator size="large" color="#A736FF" style={{ marginVertical: 40 }} />
+        ) : (
+          <View style={styles.listContainer}>
+            {artists.map((artist, index) => (
+              <View key={artist.id} style={styles.artistRow}>
+                <Text style={styles.rankNumber}>{index + 1}</Text>
+                
+                <Image 
+                  source={{ uri: artist.image }} 
+                  style={styles.avatar} 
+                  resizeMode="cover" 
+                />
 
-              <View style={styles.artistInfo}>
-                <Text style={styles.artistName} numberOfLines={1}>{artist.name}</Text>
-                {artist.subtitle ? (
-                  <Text style={styles.artistSubtitle} numberOfLines={1}>{artist.subtitle}</Text>
-                ) : null}
+                <View style={styles.artistInfo}>
+                  <Text style={styles.artistName} numberOfLines={1}>{artist.name}</Text>
+                  {artist.subtitle ? (
+                    <Text style={styles.artistSubtitle} numberOfLines={1}>{artist.subtitle}</Text>
+                  ) : null}
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.optionsButton} 
+                  activeOpacity={0.7}
+                  onPress={() => openArtistOptions(artist)}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={18} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
               </View>
-
-              <TouchableOpacity 
-                style={styles.optionsButton} 
-                activeOpacity={0.7}
-                onPress={() => openArtistOptions(artist)}
-              >
-                <Ionicons name="ellipsis-horizontal" size={18} color="rgba(255,255,255,0.6)" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
 
       </ScrollView>
 
@@ -147,7 +178,7 @@ export default function TopArtistsDetailScreen({ onBackPress }) {
                 {/* Selected Artist Header */}
                 {selectedArtist && (
                   <View style={styles.sheetHeader}>
-                    <Image source={selectedArtist.image} style={styles.sheetAvatar} />
+                    <Image source={{ uri: selectedArtist.image }} style={styles.sheetAvatar} />
                     <Text style={styles.sheetArtistName} numberOfLines={1}>{selectedArtist.name}</Text>
                   </View>
                 )}

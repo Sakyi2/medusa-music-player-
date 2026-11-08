@@ -1,65 +1,87 @@
 // app/category/[id].tsx
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  Image, 
+  TouchableOpacity, 
+  FlatList, 
+  ActivityIndicator 
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
-// Mock data generator for category content with unique item identifiers
-const getCategoryData = (title: string) => {
-  return {
-    title: title || 'Collection',
-    subtitle: `Top curated picks in ${title || 'Music'}`,
-    sections: [
-      {
-        title: `African ${title || 'Trending'}`,
-        data: [
-          { id: 'a1', name: 'Aya Nakamura, Blaqbonez...', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4', tag: 'afro bars', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-          { id: 'a2', name: 'Black Sherif, Kweku Smoke...', image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc', tag: '+233 Bars', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-          { id: 'a3', name: 'Don Toliver, Mavo, Blaq...', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745', tag: 'Exclusive', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-          { id: 'a1', name: 'Aya Nakamura, Blaqbonez...', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4', tag: 'afro bars', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-          { id: 'a2', name: 'Black Sherif, Kweku Smoke...', image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc', tag: '+233 Bars', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-          { id: 'a3', name: 'Don Toliver, Mavo, Blaq...', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745', tag: 'Exclusive', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-        ],
-      },
-      {
-        title: `Popular ${title || 'Hits'} Playlists`,
-        data: [
-          { id: 'p1', name: 'Hustlers Anthems (Sarkodie...)', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb', tag: 'Anthem', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-          { id: 'p2', name: 'Asakaa Drill Wave', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4', tag: 'Kumasi', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
-          { id: 'a1', name: 'Aya Nakamura, Blaqbonez...', image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4', tag: 'afro bars', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-          { id: 'a2', name: 'Black Sherif, Kweku Smoke...', image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc', tag: '+233 Bars', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-          { id: 'a3', name: 'Don Toliver, Mavo, Blaq...', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745', tag: 'Exclusive', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-        ],
-      },
-      {
-        title: `${title} New Releases`,
-        data: [
-          { id: 'n1', name: 'Midnight Cyber Vibes', image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc', tag: 'New Single', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
-          { id: 'n2', name: 'Neon Lights EP', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745', tag: 'Album', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
-         { id: 'n1', name: 'Midnight Cyber Vibes', image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc', tag: 'New Single', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
-          { id: 'n2', name: 'Neon Lights EP', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745', tag: 'Album', uri: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' },
-        ],
-        
-
-      },
-    ],
-  };
-};
+import { fetchMusicByGenre, fetchTopCharts } from '../../src/services/musicApi';
 
 export default function CategoryDetailScreen() {
   const router = useRouter();
   const { id, title } = useLocalSearchParams();
-  const categoryInfo = getCategoryData(Array.isArray(title) ? title[0] : title);
+  const categoryTitle = Array.isArray(title) ? title[0] : (title || 'Collection');
 
-  const handleCardPress = (item: any) => {
-    // Navigate to your player screen or album detail view, passing track params
+  const [sections, setSections] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch live music data from Deezer API based on the category title
+  useEffect(() => {
+    let isMounted = true;
+    const loadCategoryContent = async () => {
+      setLoading(true);
+      try {
+        const [genreTracks, topCharts, afroTracks] = await Promise.all([
+          fetchMusicByGenre(categoryTitle),
+          fetchTopCharts(),
+          fetchMusicByGenre('Afrobeats'),
+        ]);
+
+        if (isMounted) {
+          setSections([
+            {
+              title: `${categoryTitle} Trending`,
+              data: genreTracks.length > 0 ? genreTracks : topCharts,
+            },
+            {
+              title: `Popular Hits & Playlists`,
+              data: topCharts,
+            },
+            {
+              title: `Global Cyber Selection`,
+              data: afroTracks.length > 0 ? afroTracks : genreTracks,
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error('Error loading category detail data from Deezer:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadCategoryContent();
+    return () => { isMounted = false; };
+  }, [categoryTitle]);
+
+  const handleCardPress = (item: any, sectionData: any[]) => {
+    // Safely map and serialize the playlist queue so the player can skip tracks properly
+    const serializedPlaylist = JSON.stringify(sectionData.map(song => ({
+      id: song.id,
+      title: song.title || song.name,
+      artist: song.artist || song.artistName,
+      albumCover: song.albumCover || song.image || song.coverImage,
+      audioUrl: song.audioUrl || song.preview || song.uri,
+      duration: song.duration || 30,
+    })));
+
     router.push({
-      pathname: '/player', // Make sure you have app/player.tsx or similar route set up
+      pathname: '/player', 
       params: { 
-        title: item.name, 
-        image: item.image, 
-        uri: item.uri,
-        tag: item.tag 
+        id: item.id,
+        title: item.title || item.name, 
+        artist: item.artist || item.artistName,
+        albumCover: item.albumCover || item.image || item.coverImage, 
+        audioUrl: item.audioUrl || item.preview || item.uri,
+        duration: item.duration || 30,
+        playlist: serializedPlaylist, // Passes queue context securely
       },
     });
   };
@@ -71,45 +93,53 @@ export default function CategoryDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{categoryInfo.title}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{categoryTitle}</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Main Category Banner Title */}
-        <Text style={styles.heroTitle}>{categoryInfo.title}</Text>
-        <Text style={styles.heroSubtitle}>{categoryInfo.subtitle}</Text>
+      {loading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#A736FF" />
+          <Text style={styles.loaderText}>Syncing Cyber Frequency...</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Main Category Banner Title */}
+          <Text style={styles.heroTitle}>{categoryTitle}</Text>
+          <Text style={styles.heroSubtitle}>Top curated live streams in {categoryTitle}</Text>
 
-        {/* Dynamic Horizontal Rows */}
-        {categoryInfo.sections.map((section, sIndex) => (
-          <View key={sIndex} style={styles.sectionContainer}>
-            <Text style={styles.sectionHeader}>{section.title}</Text>
-            <FlatList
-              horizontal
-              data={section.data}
-              keyExtractor={(item) => item.id}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={styles.card} 
-                  activeOpacity={0.8}
-                  onPress={() => handleCardPress(item)}
-                >
-                  <View style={styles.imageContainer}>
-                    <Image source={{ uri: item.image }} style={styles.cardImage} />
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{item.tag}</Text>
+          {/* Dynamic Horizontal Rows */}
+          {sections.map((section, sIndex) => (
+            <View key={sIndex} style={styles.sectionContainer}>
+              <Text style={styles.sectionHeader}>{section.title}</Text>
+              <FlatList
+                horizontal
+                data={section.data}
+                keyExtractor={(item, idx) => `${item.id}-${idx}`}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    style={styles.card} 
+                    activeOpacity={0.8}
+                    onPress={() => handleCardPress(item, section.data)}
+                  >
+                    <View style={styles.imageContainer}>
+                      <Image source={{ uri: item.albumCover || item.image }} style={styles.cardImage} />
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>PLAY</Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={styles.cardText} numberOfLines={2}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        ))}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+                    <Text style={styles.cardText} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.cardSubText} numberOfLines={1}>{item.artist}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          ))}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -118,6 +148,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#120E1F',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loaderText: {
+    color: '#A736FF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   header: {
     flexDirection: 'row',
@@ -177,6 +219,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#261E38',
     marginBottom: 8,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 54, 255, 0.2)',
   },
   cardImage: {
     width: '100%',
@@ -186,20 +230,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: 'rgba(167, 54, 255, 0.85)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
   },
   badgeText: {
-    color: '#A736FF',
+    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   cardText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cardSubText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    marginTop: 2,
   },
 });

@@ -49,5 +49,5 @@ If you want to run or inspect the source code locally on your machine:
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/YOUR_USERNAME/medusa-music-app.git](https://github.com/YOUR_USERNAME/medusa-music-app.git)
+   git clone [https://github.com/YOUR_USERNAME/medusa-music-app.git](https://github.com/Sakyi2/medusa-music-app.git)
    cd medusa-music-app
